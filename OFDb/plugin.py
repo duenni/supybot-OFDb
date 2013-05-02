@@ -72,20 +72,27 @@ class OFDb(callbacks.Plugin):
             return      
 
         elem = tree.xpath('//rcode/text()')
+        
         if  elem[0].strip == 0:
             pass
-        elif elem[0].strip == 1:
-            irc.reply('Unbekannter Fehler.')         
-        elif elem[0].strip == 2:
+        elif elem[0].strip() == '1':
+            irc.reply('Unbekannter Fehler.')
+            return         
+        elif elem[0].strip() == '2':
             irc.reply('Fehler oder Timeout bei der Anfrage.')
-        elif elem[0].strip == 3:
+            return
+        elif elem[0].strip() == '3':
             irc.reply('Keine oder falsche ID angegeben.')
-        elif elem[0].strip == 4:
+            return
+        elif elem[0].strip() == '4':
             irc.reply('Keine Daten zu angegebener ID oder Query gefunden.')
-        elif elem[0].strip == 5:
+            return
+        elif elem[0].strip() == '5':
             irc.reply('Fehler bei der Datenverarbeitung.')
-        elif elem[0].strip == 9:
+            return
+        elif elem[0].strip() == '9':
             irc.reply('Wartungsmodus, OFDBGW derzeit nicht verfügbar.') 
+            return
 
         #Deutscher Titel
         elem = tree.xpath('//resultat/titel/text()')
