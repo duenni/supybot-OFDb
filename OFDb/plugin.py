@@ -56,43 +56,44 @@ class OFDb(callbacks.Plugin):
             tree = etree.parse(url)
         except:
             irc.reply('Ich konnte die Seite nicht öffnen')
-            return      
-
-        elem = tree.xpath('//eintrag/id/text()')
-        if elem:
-            ofdbid = elem[0].strip()
-        else:
-            ofdbid = ''
-
-        try:
-            url = urllib2.urlopen('http://ofdbgw.org/movie/%s'%ofdbid)
-            tree = etree.parse(url)
-        except:
-            irc.reply('Ich konnte die Seite nicht öffnen')
-            return      
-
-        elem = tree.xpath('//rcode/text()')
+            return       
         
-        if  elem[0].strip == 0:
-            pass
-        elif elem[0].strip() == '1':
+        #check ofdbgw.org return codes
+        rcode = tree.xpath('//rcode/text()')
+        
+        if rcode[0].strip() == '0':
+            elem = tree.xpath('//eintrag/id/text()')
+            if elem:
+                ofdbid = elem[0].strip()
+            else:
+                ofdbid = ''
+
+            try:
+                url = urllib2.urlopen('http://ofdbgw.org/movie/%s'%ofdbid)
+                tree = etree.parse(url)
+            except:
+                irc.reply('Ich konnte die Seite nicht öffnen')
+                return                 
+            rcode = tree.xpath('//rcode/text()')
+
+        if rcode[0].strip() == '1':
             irc.reply('Unbekannter Fehler.')
             return         
-        elif elem[0].strip() == '2':
+        elif rcode[0].strip() == '2':
             irc.reply('Fehler oder Timeout bei der Anfrage.')
             return
-        elif elem[0].strip() == '3':
+        elif rcode[0].strip() == '3':
             irc.reply('Keine oder falsche ID angegeben.')
             return
-        elif elem[0].strip() == '4':
+        elif rcode[0].strip() == '4':
             irc.reply('Keine Daten zu angegebener ID oder Query gefunden.')
             return
-        elif elem[0].strip() == '5':
+        elif rcode[0].strip() == '5':
             irc.reply('Fehler bei der Datenverarbeitung.')
             return
-        elif elem[0].strip() == '9':
+        elif rcode[0].strip() == '9':
             irc.reply('Wartungsmodus, OFDBGW derzeit nicht verfügbar.') 
-            return
+            return          
 
         #Deutscher Titel
         elem = tree.xpath('//resultat/titel/text()')
@@ -143,7 +144,7 @@ class OFDb(callbacks.Plugin):
         irc.reply(ircutils.bold('Title: ')+title+' ('+year+')'+' '+bewertung+'/10')
         irc.reply(ircutils.bold('Originaltitel: ')+titleorig)
         irc.reply(ircutils.bold('Inhalt: ')+descr)   
-        irc.reply (ircutils.bold('Regie: ')+regie)
+        irc.reply(ircutils.bold('Regie: ')+regie)
 
     ofdb = wrap(ofdb, ['text'])
 Class = OFDb
