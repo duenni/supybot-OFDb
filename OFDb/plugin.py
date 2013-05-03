@@ -55,7 +55,7 @@ class OFDb(callbacks.Plugin):
             url = urllib2.urlopen('http://ofdbgw.org/search/%s'%search)
             tree = etree.parse(url)
         except:
-            irc.reply('Ich konnte die Seite nicht öffnen')
+            irc.reply('Ich konnte die Seite nicht öffnen', prefixNick=False)
             return       
         
         #check ofdbgw.org return codes
@@ -72,27 +72,27 @@ class OFDb(callbacks.Plugin):
                 url = urllib2.urlopen('http://ofdbgw.org/movie/%s'%ofdbid)
                 tree = etree.parse(url)
             except:
-                irc.reply('Ich konnte die Seite nicht öffnen')
+                irc.reply('Ich konnte die Seite nicht öffnen', prefixNick=False)
                 return                 
             rcode = tree.xpath('//rcode/text()')
 
         if rcode[0].strip() == '1':
-            irc.reply('Unbekannter Fehler.')
+            irc.reply('Unbekannter Fehler.', prefixNick=False)
             return         
         elif rcode[0].strip() == '2':
-            irc.reply('Fehler oder Timeout bei der Anfrage.')
+            irc.reply('Fehler oder Timeout bei der Anfrage.', prefixNick=False)
             return
         elif rcode[0].strip() == '3':
-            irc.reply('Keine oder falsche ID angegeben.')
+            irc.reply('Keine oder falsche ID angegeben.', prefixNick=False)
             return
         elif rcode[0].strip() == '4':
-            irc.reply('Keine Daten zu angegebener ID oder Query gefunden.')
+            irc.reply('Keine Daten zu angegebener ID oder Query gefunden.', prefixNick=False)
             return
         elif rcode[0].strip() == '5':
-            irc.reply('Fehler bei der Datenverarbeitung.')
+            irc.reply('Fehler bei der Datenverarbeitung.', prefixNick=False)
             return
         elif rcode[0].strip() == '9':
-            irc.reply('Wartungsmodus, OFDBGW derzeit nicht verfügbar.') 
+            irc.reply('Wartungsmodus, OFDBGW derzeit nicht verfügbar.', prefixNick=False) 
             return          
 
         #Deutscher Titel
@@ -137,14 +137,28 @@ class OFDb(callbacks.Plugin):
         if elem:
             bewertung = elem[0].strip()
         else:
-            bewertung = ''           
+            bewertung = ''  
+
+        #Fassungen
+        elem = tree.xpath("count(//fassungen/titel/land[text()='Deutschland'])")
+        if elem:
+            fassungger = int(elem)
+        else:
+            fassungger = 0  
+
+        elem = tree.xpath("count(//fassungen/titel)")
+        if elem:
+            fassungall = int(elem)
+        else:
+            fassungall = 0       
 
         #Reply
-        irc.reply(ircutils.bold(ircutils.mircColor('OFDb', fg='yellow', bg='red')+' http://www.ofdb.de/film'+'/'+ofdbid+','+titlelink))
-        irc.reply(ircutils.bold('Title: ')+title+' ('+year+')'+' '+bewertung+'/10')
-        irc.reply(ircutils.bold('Originaltitel: ')+titleorig)
-        irc.reply(ircutils.bold('Inhalt: ')+descr)   
-        irc.reply(ircutils.bold('Regie: ')+regie)
+        irc.reply(ircutils.bold(ircutils.mircColor('OFDb', fg='yellow', bg='red')+' http://www.ofdb.de/film'+'/'+ofdbid+','+titlelink), prefixNick=False)
+        irc.reply(ircutils.bold('Title: ')+title+' ('+year+')'+' '+bewertung+'/10', prefixNick=False)
+        irc.reply(ircutils.bold('Originaltitel: ')+titleorig, prefixNick=False)
+        irc.reply(ircutils.bold('Inhalt: ')+descr, prefixNick=False)   
+        irc.reply(ircutils.bold('Regie: ')+regie, prefixNick=False)
+        irc.reply(ircutils.bold('Eingetragene Fassungen:')+' Deutschland %s / Rest der Welt %s'%(fassungger,(fassungall - fassungger)), prefixNick=False)        
 
     ofdb = wrap(ofdb, ['text'])
 Class = OFDb
