@@ -28,6 +28,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 ###
+import re
 import urllib2
 from lxml import etree
 import supybot.utils as utils
@@ -121,7 +122,7 @@ class OFDb(callbacks.Plugin):
         #Kurzbeschreibung
         elem = tree.xpath('//kurzbeschreibung/text()')
         if elem:
-            descr = elem[0].strip()
+            descr = re.sub("\((([Qu]).*?)\)","",elem[0].strip()) #Regex for stripping (Quelle: Covertext » eigenen Text einstellen)
         else:
             descr = ''    
 
