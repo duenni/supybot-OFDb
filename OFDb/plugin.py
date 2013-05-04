@@ -30,7 +30,6 @@
 ###
 import re
 import urllib2
-import socket
 from lxml import etree
 import supybot.utils as utils
 from supybot.commands import *
@@ -70,12 +69,19 @@ class OFDb(callbacks.Plugin):
         #check ofdbgw.org return codes
         rcode = tree.xpath('//rcode/text()')
         
+        #If there ae no errors, search
         if rcode[0].strip() == '0':
-            elem = tree.xpath('//eintrag/id/text()')
-            if elem:
-                ofdbid = elem[0].strip()
-            else:
-                ofdbid = ''
+            elem_id = tree.xpath('//eintrag/id/text()')
+            elem_title = tree.xpath('//eintrag/titel/text()')
+            if elem_id:
+                for i in range(len(elem_id)):
+                    if re.search('^' + searchterm + '$', elem_title[i].strip(), re.IGNORECASE): 
+                        ofdbid=elem_id[i].strip()
+                        break
+                    if re.search(searchterm, elem_title[i].strip(), re.IGNORECASE):     
+                        ofdbid=elem_id[i].strip()
+
+            #We have an ID, parse it's URL to get the details
             url = 'http://ofdbgw.org/movie/%s'%ofdbid
             try:
                 req = urllib2.Request(url, '', headers)
@@ -161,14 +167,21 @@ class OFDb(callbacks.Plugin):
         if elem:
             fassungall = int(elem)
         else:
-            fassungall = 0       
+            fassungall = 0 
+
+        #Genres
+        elem = tree.xpath('//genre/titel/text()')
+        if elem:
+            genre = '/'.join(elem)
+        else:
+            genre = '-'        
 
         #Reply
         irc.reply(ircutils.bold(ircutils.mircColor('OFDb', fg='yellow', bg='red')+' http://www.ofdb.de/film'+'/'+ofdbid+','+titlelink), prefixNick=False)
         irc.reply(ircutils.bold('Title: ')+title+' ('+year+')'+' '+bewertung+'/10', prefixNick=False)
         irc.reply(ircutils.bold('Originaltitel: ')+titleorig, prefixNick=False)
-        irc.reply(ircutils.bold('Inhalt: ')+descr, prefixNick=False)   
-        irc.reply(ircutils.bold('Regie: ')+regie, prefixNick=False)
+        irc.reply(ircutils.bold('Inhalt: ')+descr+' (...)', prefixNick=False)   
+        irc.reply(ircutils.bold('Regie: ')+regie+ircutils.bold(' Genres: ')+genre, prefixNick=False)
         irc.reply(ircutils.bold('Eingetragene Fassungen:')+' Deutschland %s / Rest der Welt %s'%(fassungger,(fassungall - fassungger)), prefixNick=False)        
 
     ofdb = wrap(ofdb, ['text'])
