@@ -30,6 +30,7 @@
 ###
 import re
 import urllib2
+import socket
 from lxml import etree
 import supybot.utils as utils
 from supybot.commands import *
@@ -50,15 +51,22 @@ class OFDb(callbacks.Plugin):
         """<movie>
         output info from OFDb about a movie
         """
+
         search = urllib2.quote(searchterm)
+        url = 'http://ofdbgw.org/search/%s'%search
+        user_agent = 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'
+        headers = { 'User-Agent' : user_agent }
 
         try:
-            url = urllib2.urlopen('http://ofdbgw.org/search/%s'%search)
-            tree = etree.parse(url)
-        except:
-            irc.reply('Ich konnte die Seite nicht öffnen', prefixNick=False)
-            return       
-        
+            #url = urllib2.urlopen('http://ofdbgw.org/search/%s'%search)
+            req = urllib2.Request(url, '', headers)
+            req.add_header('User-Agent', user_agent)
+            response = urllib2.urlopen(req)
+            tree = etree.parse(response)    
+        except Exception, e:
+            irc.reply('Ich konnte die Seite nicht öffnen %s'% e, prefixNick=False)
+            return 
+     
         #check ofdbgw.org return codes
         rcode = tree.xpath('//rcode/text()')
         
@@ -68,13 +76,15 @@ class OFDb(callbacks.Plugin):
                 ofdbid = elem[0].strip()
             else:
                 ofdbid = ''
-
+            url = 'http://ofdbgw.org/movie/%s'%ofdbid
             try:
-                url = urllib2.urlopen('http://ofdbgw.org/movie/%s'%ofdbid)
-                tree = etree.parse(url)
-            except:
-                irc.reply('Ich konnte die Seite nicht öffnen', prefixNick=False)
-                return                 
+                req = urllib2.Request(url, '', headers)
+                req.add_header('User-Agent', user_agent)
+                response = urllib2.urlopen(req)
+                tree = etree.parse(response)  
+            except Exception, e:
+                irc.reply('Ich konnte die Seite nicht öffnen: %s'% e, prefixNick=False)
+                return 
             rcode = tree.xpath('//rcode/text()')
 
         if rcode[0].strip() == '1':
@@ -122,7 +132,7 @@ class OFDb(callbacks.Plugin):
         #Kurzbeschreibung
         elem = tree.xpath('//kurzbeschreibung/text()')
         if elem:
-            descr = re.sub("\((([Qu]).*?)\)","",elem[0].strip()) #Regex for stripping (Quelle: Covertext » eigenen Text einstellen)
+            descr = re.sub("^ *\(Quelle.*?\)","",elem[0].strip()) #Regex for stripping (Quelle: Covertext » eigenen Text einstellen)
         else:
             descr = ''    
 
