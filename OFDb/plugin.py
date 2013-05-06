@@ -74,7 +74,6 @@ class OFDb(callbacks.Plugin):
             elem_id = tree.xpath('//eintrag/id/text()')
             elem_title = tree.xpath('//eintrag/titel/text()')
             if elem_id:
-                irc.reply(len(elem_id))
                 for i in range (len(elem_id)):
                     if re.search('^' + searchterm + '$', elem_title[i].strip(), re.IGNORECASE): 
                         ofdbid = elem_id[i].strip()
