@@ -74,24 +74,29 @@ class OFDb(callbacks.Plugin):
             elem_id = tree.xpath('//eintrag/id/text()')
             elem_title = tree.xpath('//eintrag/titel/text()')
             if elem_id:
-                for i in range(len(elem_id)):
+                irc.reply(len(elem_id))
+                for i in range (len(elem_id)):
                     if re.search('^' + searchterm + '$', elem_title[i].strip(), re.IGNORECASE): 
-                        ofdbid=elem_id[i].strip()
+                        ofdbid = elem_id[i].strip()
                         break
-                    if re.search(searchterm, elem_title[i].strip(), re.IGNORECASE):     
-                        ofdbid=elem_id[i].strip()
+                    elif re.search(searchterm, elem_title[i].strip(), re.IGNORECASE):     
+                        ofdbid = elem_id[i].strip()
+                    else:
+                        ofdbid = elem_id[0].strip()
 
-            #We have an ID, parse it's URL to get the details
-            url = 'http://ofdbgw.org/movie/%s'%ofdbid
-            try:
-                req = urllib2.Request(url, '', headers)
-                req.add_header('User-Agent', user_agent)
-                response = urllib2.urlopen(req)
-                tree = etree.parse(response)  
-            except Exception, e:
-                irc.reply('Ich konnte die Seite nicht öffnen: %s'% e, prefixNick=False)
-                return 
-            rcode = tree.xpath('//rcode/text()')
+                #We have an ID, parse it's URL to get the details                
+                url = 'http://ofdbgw.org/movie/%s'%ofdbid
+
+                try:
+                    req = urllib2.Request(url, '', headers)
+                    req.add_header('User-Agent', user_agent)
+                    response = urllib2.urlopen(req)
+                    tree = etree.parse(response)  
+                except Exception, e:
+                    irc.reply('Ich konnte die Seite nicht öffnen: %s'% e, prefixNick=False)
+                    return 
+
+        rcode = tree.xpath('//rcode/text()')
 
         if rcode[0].strip() == '1':
             irc.reply('Unbekannter Fehler.', prefixNick=False)
