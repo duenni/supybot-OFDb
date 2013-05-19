@@ -42,153 +42,157 @@ _ = PluginInternationalization('OFDb')
 
 @internationalizeDocstring
 class OFDb(callbacks.Plugin):
-    """Add the help for "@plugin help OFDb" here
-    This should describe *how* to use this plugin."""
-    threaded = True
+	"""Add the help for "@plugin help OFDb" here
+	This should describe *how* to use this plugin."""
+	threaded = True
 
-    def ofdb(self, irc, msg, args, searchterm):
-        """<movie>
-        output info from OFDb about a movie
-        """
+	def ofdb(self, irc, msg, args, searchterm):
+		"""<movie>
+		output info from OFDb about a movie
+		"""
+		#ofdbgw.org redirects to one of this mirrors, some of them time out a lot (response code = 2), so we ask every mirrorsite instead of using the loadbalancer. Thats not that nice but if using ofdbgw.org alone >80% of the users queries will time out.
+		servers = ['http://ofdbgw.scheeper.de', 
+		'http://ofdbgw.home-of-root.de', 
+		'http://ofdbgw.metawave.ch', 
+		'http://ofdbgw.h1915283.stratoserver.net', 
+		'http://ofdbgw.johann-scharl.de', 
+		'http://ofdbgw.geeksphere.de']
 
-        search = urllib2.quote(searchterm)
-        url = 'http://ofdbgw.org/search/%s'%search
-        user_agent = 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'
-        headers = { 'User-Agent' : user_agent }
+		#For building the final URL
+		moviesearch = '/search/'
+		detailsearch = '/movie/'	
+		search = urllib2.quote(searchterm)
 
-        try:
-            #url = urllib2.urlopen('http://ofdbgw.org/search/%s'%search)
-            req = urllib2.Request(url, '', headers)
-            req.add_header('User-Agent', user_agent)
-            response = urllib2.urlopen(req)
-            tree = etree.parse(response)    
-        except Exception, e:
-            irc.reply('Ich konnte die Seite nicht öffnen %s'% e, prefixNick=False)
-            return 
-     
-        #check ofdbgw.org return codes
-        rcode = tree.xpath('//rcode/text()')
+		for server in servers:
+			url = server+moviesearch+search
+			try:
+				response = urllib2.urlopen(url)
+				tree = etree.parse(response)
+				rcode = tree.xpath('//rcode/text()')#response code from ofdbgw, 0 means "no errors"
+				if rcode[0].strip() == '0':
+					break    
+			except Exception, e:
+				irc.reply('Ich konnte die Seite nicht öffnen: %s'% e, prefixNick=False)
+				return 	
+
+		#If there ae no errors, search for appropriate ID
+		if rcode[0].strip() == '0':
+			elem_id = tree.xpath('//eintrag/id/text()')
+			elem_title = tree.xpath('//eintrag/titel/text()')
+			if elem_id:
+				for i in range (len(elem_id)):
+					if re.search('^' + searchterm + '$', elem_title[i].strip(), re.IGNORECASE): 
+						ofdbid = elem_id[i].strip()
+						break
+					elif re.search(searchterm, elem_title[i].strip(), re.IGNORECASE):     
+						ofdbid = elem_id[i].strip()
+					else:
+						ofdbid = elem_id[0].strip()
+			#We have an ID, parse it's URL to get the details                
+			for server in servers:
+				url = server+detailsearch+ofdbid
+				try:
+					response = urllib2.urlopen(url)
+					tree = etree.parse(response)
+					rcode = tree.xpath('//rcode/text()')
+					if rcode[0].strip() == '0':
+						break    
+				except Exception, e:
+					irc.reply('Ich konnte die Seite nicht öffnen: %s'% e, prefixNick=False)
+					return 
+
+		if rcode[0].strip() == '1':
+			irc.reply('Unbekannter Fehler.', prefixNick=False)
+			return         
+		elif rcode[0].strip() == '2':
+			irc.reply('Fehler oder Timeout bei der Anfrage.', prefixNick=False)
+			return
+		elif rcode[0].strip() == '3':
+			irc.reply('Keine oder falsche ID angegeben.', prefixNick=False)
+			return
+		elif rcode[0].strip() == '4':
+			irc.reply('Keine Daten zu angegebener ID oder Query gefunden.', prefixNick=False)
+			return
+		elif rcode[0].strip() == '5':
+			irc.reply('Fehler bei der Datenverarbeitung.', prefixNick=False)
+			return
+		elif rcode[0].strip() == '9':
+			irc.reply('Wartungsmodus, OFDBGW derzeit nicht verfügbar.', prefixNick=False) 
+			return          
+
+		#Deutscher Titel
+		elem = tree.xpath('//resultat/titel/text()')
+		if elem:
+			title = elem[0].strip()
+			titlelink = title.replace(' ','-')
+		else:
+			title = '-'
+			titlelink = '-'  
+
+		#Originaltitel
+		elem = tree.xpath('//alternativ/text()')
+		if elem:
+			titleorig = elem[0].strip()
+		else:
+			titleorig = ''
         
-        #If there ae no errors, search
-        if rcode[0].strip() == '0':
-            elem_id = tree.xpath('//eintrag/id/text()')
-            elem_title = tree.xpath('//eintrag/titel/text()')
-            if elem_id:
-                for i in range (len(elem_id)):
-                    if re.search('^' + searchterm + '$', elem_title[i].strip(), re.IGNORECASE): 
-                        ofdbid = elem_id[i].strip()
-                        break
-                    elif re.search(searchterm, elem_title[i].strip(), re.IGNORECASE):     
-                        ofdbid = elem_id[i].strip()
-                    else:
-                        ofdbid = elem_id[0].strip()
-
-                #We have an ID, parse it's URL to get the details                
-                url = 'http://ofdbgw.org/movie/%s'%ofdbid
-
-                try:
-                    req = urllib2.Request(url, '', headers)
-                    req.add_header('User-Agent', user_agent)
-                    response = urllib2.urlopen(req)
-                    tree = etree.parse(response)  
-                except Exception, e:
-                    irc.reply('Ich konnte die Seite nicht öffnen: %s'% e, prefixNick=False)
-                    return 
-
-        rcode = tree.xpath('//rcode/text()')
-
-        if rcode[0].strip() == '1':
-            irc.reply('Unbekannter Fehler.', prefixNick=False)
-            return         
-        elif rcode[0].strip() == '2':
-            irc.reply('Fehler oder Timeout bei der Anfrage.', prefixNick=False)
-            return
-        elif rcode[0].strip() == '3':
-            irc.reply('Keine oder falsche ID angegeben.', prefixNick=False)
-            return
-        elif rcode[0].strip() == '4':
-            irc.reply('Keine Daten zu angegebener ID oder Query gefunden.', prefixNick=False)
-            return
-        elif rcode[0].strip() == '5':
-            irc.reply('Fehler bei der Datenverarbeitung.', prefixNick=False)
-            return
-        elif rcode[0].strip() == '9':
-            irc.reply('Wartungsmodus, OFDBGW derzeit nicht verfügbar.', prefixNick=False) 
-            return          
-
-        #Deutscher Titel
-        elem = tree.xpath('//resultat/titel/text()')
-        if elem:
-            title = elem[0].strip()
-            titlelink = title.replace(' ','-')
-        else:
-            title = '-'
-            titlelink = '-'  
-
-        #Originaltitel
-        elem = tree.xpath('//alternativ/text()')
-        if elem:
-            titleorig = elem[0].strip()
-        else:
-            titleorig = ''
+		#Jahr
+		elem = tree.xpath('//jahr/text()')
+		if elem:
+			year = elem[0].strip()
+		else:
+			year = ''              
         
-        #Jahr
-        elem = tree.xpath('//jahr/text()')
-        if elem:
-            year = elem[0].strip()
-        else:
-            year = ''              
-        
-        #Kurzbeschreibung
-        elem = tree.xpath('//kurzbeschreibung/text()')
-        if elem:
-            descr = re.sub("^ *\(Quelle.*?\)","",elem[0].strip()) #Regex for stripping (Quelle: Covertext » eigenen Text einstellen)
-        else:
-            descr = ''    
+		#Kurzbeschreibung
+		elem = tree.xpath('//kurzbeschreibung/text()')
+		if elem:
+			descr = re.sub("^ *\(Quelle.*?\)","",elem[0].strip()) #Regex for stripping (Quelle: Covertext » eigenen Text einstellen)
+		else:
+			descr = ''    
 
-        #Regie
-        elem = tree.xpath('//regie/person/name/text()')
-        if elem:
-            regie = elem[0].strip()
-        else:
-            regie = '' 
+		#Regie
+		elem = tree.xpath('//regie/person/name/text()')
+		if elem:
+			regie = elem[0].strip()
+		else:
+			regie = '' 
 
-        #Bewertung
-        elem = tree.xpath('//bewertung/note/text()')
-        if elem:
-            bewertung = elem[0].strip()
-        else:
-            bewertung = ''  
+		#Bewertung
+		elem = tree.xpath('//bewertung/note/text()')
+		if elem:
+			bewertung = elem[0].strip()
+		else:
+			bewertung = ''  
 
-        #Fassungen
-        elem = tree.xpath("count(//fassungen/titel/land[text()='Deutschland'])")
-        if elem:
-            fassungger = int(elem)
-        else:
-            fassungger = 0  
+		#Fassungen
+		elem = tree.xpath("count(//fassungen/titel/land[text()='Deutschland'])")
+		if elem:
+			fassungger = int(elem)
+		else:
+			fassungger = 0  
 
-        elem = tree.xpath("count(//fassungen/titel)")
-        if elem:
-            fassungall = int(elem)
-        else:
-            fassungall = 0 
+		elem = tree.xpath("count(//fassungen/titel)")
+		if elem:
+			fassungall = int(elem)
+		else:
+			fassungall = 0 
 
-        #Genres
-        elem = tree.xpath('//genre/titel/text()')
-        if elem:
-            genre = '/'.join(elem)
-        else:
-            genre = '-'        
+		#Genres
+		elem = tree.xpath('//genre/titel/text()')
+		if elem:
+			genre = '/'.join(elem)
+		else:
+			genre = '-'        
 
-        #Reply
-        irc.reply(ircutils.bold(ircutils.mircColor('OFDb', fg='yellow', bg='red')+' http://www.ofdb.de/film'+'/'+ofdbid+','+titlelink), prefixNick=False)
-        irc.reply(ircutils.bold('Title: ')+title+' ('+year+')'+' '+bewertung+'/10', prefixNick=False)
-        irc.reply(ircutils.bold('Originaltitel: ')+titleorig, prefixNick=False)
-        irc.reply(ircutils.bold('Inhalt: ')+descr+' (...)', prefixNick=False)   
-        irc.reply(ircutils.bold('Regie: ')+regie+ircutils.bold(' Genres: ')+genre, prefixNick=False)
-        irc.reply(ircutils.bold('Eingetragene Fassungen:')+' Deutschland %s / Rest der Welt %s'%(fassungger,(fassungall - fassungger)), prefixNick=False)        
+		#Reply
+		irc.reply(ircutils.bold(ircutils.mircColor('OFDb', fg='yellow', bg='red')+' http://www.ofdb.de/film'+'/'+ofdbid+','+titlelink), prefixNick=False)
+		irc.reply(ircutils.bold('Title: ')+title+' ('+year+')'+' '+bewertung+'/10', prefixNick=False)
+		irc.reply(ircutils.bold('Originaltitel: ')+titleorig, prefixNick=False)
+		irc.reply(ircutils.bold('Inhalt: ')+descr+' (...)', prefixNick=False)   
+		irc.reply(ircutils.bold('Regie: ')+regie+ircutils.bold(' Genres: ')+genre, prefixNick=False)
+		irc.reply(ircutils.bold('Eingetragene Fassungen:')+' Deutschland %s / Rest der Welt %s'%(fassungger,(fassungall - fassungger)), prefixNick=False)        
 
-    ofdb = wrap(ofdb, ['text'])
+	ofdb = wrap(ofdb, ['text'])
 Class = OFDb
 
 
