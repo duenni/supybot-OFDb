@@ -1,4 +1,4 @@
 supybot-OFDb
 ============
 
-OFDb plugin for supybot. Uses ofdbgw.org 
+OFDb plugin for Supybot/Limnoria. Uses ofdbgw.org. 
