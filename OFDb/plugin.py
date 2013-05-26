@@ -69,13 +69,13 @@ class OFDb(callbacks.Plugin):
 				response = urllib2.urlopen(url)
 				tree = etree.parse(response)
 				rcode = tree.xpath('//rcode/text()')#response code from ofdbgw, 0 means "no errors"
-				if rcode[0].strip() == '0':
+				if rcode[0].strip() == '0' or rcode[0].strip() == '4': #break if no error or no movie found
 					break    
 			except Exception, e:
-				irc.reply('Ich konnte die Seite nicht öffnen: %s'% e, prefixNick=False)
-				return 	
+				rcode = ['-']
+				continue
 
-		#If there ae no errors, search for appropriate ID
+		#If there are no errors, search for appropriate ID
 		if rcode[0].strip() == '0':
 			elem_id = tree.xpath('//eintrag/id/text()')
 			elem_title = tree.xpath('//eintrag/titel/text()')
@@ -98,26 +98,29 @@ class OFDb(callbacks.Plugin):
 					if rcode[0].strip() == '0':
 						break    
 				except Exception, e:
-					irc.reply('Ich konnte die Seite nicht öffnen: %s'% e, prefixNick=False)
-					return 
+					continue 
 
 		if rcode[0].strip() == '1':
 			irc.reply('Unbekannter Fehler.', prefixNick=False)
 			return         
 		elif rcode[0].strip() == '2':
-			irc.reply('Fehler oder Timeout bei der Anfrage.', prefixNick=False)
+			irc.reply('Fehler oder Timeout bei der Anfrage von Gateway zu OFDb.', prefixNick=False)
 			return
 		elif rcode[0].strip() == '3':
 			irc.reply('Keine oder falsche ID angegeben.', prefixNick=False)
 			return
 		elif rcode[0].strip() == '4':
-			irc.reply('Keine Daten zu angegebener ID oder Query gefunden.', prefixNick=False)
+			irc.reply('Kein passender Film gefunden.', prefixNick=False)
 			return
 		elif rcode[0].strip() == '5':
 			irc.reply('Fehler bei der Datenverarbeitung.', prefixNick=False)
 			return
 		elif rcode[0].strip() == '9':
 			irc.reply('Wartungsmodus, OFDBGW derzeit nicht verfügbar.', prefixNick=False) 
+			return
+		#if rcode has no value and 'e' exists -> seems like no gatewayserver could be reached, reply with exception from for-loop
+		elif 'e' in locals() and rcode[0].strip() == '-': 
+			irc.reply('Kein Gateway erreichbar: %s'% e, prefixNick=False)
 			return          
 
 		#Deutscher Titel
